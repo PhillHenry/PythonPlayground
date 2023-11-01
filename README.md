@@ -1,2 +1,2 @@
 # PythonPlayground
-Katas etc
+Katas and language features etc
