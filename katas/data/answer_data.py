@@ -93,8 +93,22 @@ def do_match():
             print(f"{table}: {mismatch}")
             count += 1
     print(f"{count} not mapped")
-    print(f"The schemas of those not mapped are {set([miss.schema for miss in mismathes.values() if miss.num_matches == 0])}")
+    bad_schemas = [miss.schema for miss in mismathes.values() if miss.num_matches == 0]
+    print(f"The schemas of those not mapped are {set(bad_schemas)}")
+    print_histogram(bad_schemas)
     assert (len(matching) == set(tables))
+
+
+def print_histogram(xs: list):
+    histo = {}
+    for x in xs:
+        count = histo.get(x)
+        if count:
+            histo[x] = count + 1
+        else:
+            histo[x] = 1
+    lines = [f"{x:<50} {count:>10}" for x, count in histo.items()]
+    print("\n".join(lines))
 
 
 if __name__ == "__main__":
