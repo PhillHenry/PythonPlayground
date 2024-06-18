@@ -42,7 +42,7 @@ def try_match(obj: str, mismathes: dict, df: pd.DataFrame, schema: str) -> str:
         table = obj.strip()
 
     warehouse = df[(df[VIEW].str.lower() == table.lower()) & (df[SCHEMA].str.lower() == schema.lower())]
-    if len(warehouse) != 1:
+    if len(warehouse) < 1:
         dropped = drop_last_underscore(table)
         if dropped:
             table = dropped
