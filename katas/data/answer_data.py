@@ -1,117 +1,53 @@
 import re
 import pandas as pd
 
-VIEW = "View"
-SCHEMA = "Schema"
+MBs = "UsedSpaceMB"
+SCHEMA = "Schema in NCDR"
+
+# nhp_PSD = pd.read_excel(filename, sheet_name="NHSE_PSDM_0046", header=0)
+# nhp_BB = pd.read_excel(filename, sheet_name="NHSE_BB_5008", header=0)
+# nhp_neuro = pd.read_excel(filename, sheet_name="NHSE_Sandbox_Spec_Neurology", header=0)
+# nhp_strat = pd.read_excel(filename, sheet_name="NHSE_Sandbox_StrategyUnit", header=0)
+# dbs = [nhp_BB, nhp_neuro, nhp_neuro, nhp_strat]
+
+def total_nhp() -> dict:
+    filename = "/home/henryp/Downloads/JW_2024_06_27 - Table Sizes.xlsx"
+    dbs = {}
+    for tab in ["NHSE_PSDM_0046", "NHSE_BB_5008", "NHSE_Sandbox_Spec_Neurology", "NHSE_Sandbox_StrategyUnit"]:
+        df = pd.read_excel(filename, sheet_name=tab, header=0)
+        dbs[tab] = df
+    raw = 0
+    for df in dbs.values():
+        raw = raw + df[MBs].sum()
+    print(f"Total in NHP = {raw} MBs")
+    return dbs
 
 
-def read_warehouse() -> pd.DataFrame:
-    df = pd.read_csv("/home/henryp/Documents/Answer/Warehouse.csv", header=0)
-    return df
-
-def drop_last_underscore(x: str) -> str:
-    match = re.match(r'^(.*)_[^_]*$', x)
-    matched = None
-    if match:
-        matched = match.group(1).strip()
-    return matched
+def actual_disk_used(nhp: pd.DataFrame, dbs: dict):
+    total = 0
+    for name, df in dbs.items():
+        merged = pd.merge(nhp, df, left_on="View", right_on="TableName", how='outer', indicator=True)
+        both = merged[merged['_merge'] == 'both']
+        used = both[MBs].sum()
+        total = total + used
+    print(f"\nTotal disk space used = {total / 1024} GB")
 
 
-def drop_version(x: str) -> str:
-    match = re.match(r'^(.*)_\d+$', x.strip())
-    matched = None
-    if match:
-        matched = match.group(1).strip()
-    return matched
-
-
-class Mismatch:
-    def __init__(self, num_matches: int, message: str, schema: str):
-        self.schema = schema
-        self.message = message
-        self.num_matches = num_matches
-    def __repr__(self):
-        return f"""{self.num_matches} mismatches. 
-{self.message}"""
-
-
-def try_match(obj: str, mismathes: dict, df: pd.DataFrame, schema: str) -> str:
-    obj = obj.strip()
-    table = drop_version(obj)
-    if not table:
-        table = obj.strip()
-
-    warehouse = df[(df[VIEW].str.lower() == table.lower()) & (df[SCHEMA].str.lower() == schema.lower())]
-    if len(warehouse) < 1:
-        dropped = drop_last_underscore(table)
-        if dropped:
-            table = dropped
-        warehouse = fuzzy_match(df, schema, table)
-    num_match = len(warehouse)
-    if num_match != 1 and len(warehouse.groupby([SCHEMA, VIEW]).size().reset_index(name='count')) != 1:
-        if num_match > 1:
-            others = warehouse[[SCHEMA, VIEW]]
-        else:
-            others = ""
-        msg = f"""Table '{table}' in {schema} ({obj.strip()}) matches {num_match} rows in warehouse
-{others}"""
-        mismathes[table] = Mismatch(num_match, msg, schema)
-
-    return table.lower()
-
-
-def fuzzy_match(df, schema, table):
-    mask = (df[VIEW].apply(lambda x: table.lower().endswith(x.lower()))) & (
-                df[SCHEMA].str.lower() == schema.lower())
-    warehouse = df[mask]
-    return warehouse
-
-
-def do_match():
-    with open("/home/henryp/Documents/Answer/29946/schema_object.csv", "r") as f:
-        lines = f.readlines()
-    print(len(lines))
-    df = read_warehouse()
-    tables = []
-    mismathes = {}
-    for line in lines:
-        schema, obj = line.split(",")
-        tables.append(try_match(obj, mismathes, df, schema))
-    assert len(tables) == len(lines)
-    tables = set(tables)
-    matching = df[df[VIEW].str.lower().isin(tables)]
-    print(len(matching))
-    print(f"len(matching = {len(matching)}, set of names = {len(tables)}")
-    print("\nAmbiguous")
-    for table, mismatch in mismathes.items():
-        if mismatch.num_matches > 1:
-            print(f"{table}: {mismatch}")
-    print("\nUnmapped")
-    count = 0
-    for table, mismatch in mismathes.items():
-        if mismatch.num_matches == 0:
-            print(f"{table}: {mismatch}")
-            count += 1
-    print(f"{count} not mapped")
-    bad_schemas = [miss.schema for miss in mismathes.values() if miss.num_matches == 0]
-    print(f"The schemas of those not mapped are {set(bad_schemas)}")
-    print_histogram(bad_schemas)
-    assert (len(matching) == set(tables))
-
-
-def print_histogram(xs: list):
-    histo = {}
-    for x in xs:
-        count = histo.get(x)
-        if count:
-            histo[x] = count + 1
-        else:
-            histo[x] = 1
-    lines = [f"{x:<50} {count:>10}" for x, count in histo.items()]
-    print("\n".join(lines))
+def non_matching(nhp: pd.DataFrame, dbs: dict):
+    dfs = list(dbs.values())
+    all = dfs[0]
+    for df in dfs[1:]:
+        all = pd.concat([all, df])
+    merged = pd.merge(nhp, all, left_on="View", right_on="TableName", how='outer', indicator=True)
+    unknown = merged[merged['_merge'] == 'left_only']
+    print(f"Number of unknown {len(unknown)}")
+    print(unknown[["Schema", "View"]].to_string(index=False))
 
 
 if __name__ == "__main__":
-    do_match()
+    dfe = pd.read_excel("/home/henryp/Downloads/PhODs_UDAL Mart Requirements v9_1.xlsx", sheet_name="Phase 1 migration-Pharm+", header=0)
+    nhp = pd.read_csv("/home/henryp/Documents/Answer/30158/ncdr_nhp_cleaned.csv")
+    actual_disk_used(nhp, total_nhp())
+    non_matching(nhp, total_nhp())
 
 
