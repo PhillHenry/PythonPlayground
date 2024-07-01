@@ -52,13 +52,13 @@ def non_matching(nhp: pd.DataFrame, dbs: dict):
 
 if __name__ == "__main__":
     # dfe = pd.read_excel("/home/henryp/Downloads/PhODs_UDAL Mart Requirements v9_1.xlsx", sheet_name="Phase 1 migration-Pharm+", header=0)
-    nhp = pd.read_excel("/home/henryp/Downloads/21434 - NHPSU - Requirements - 20240529.xlsx",
+    nhp = pd.read_excel("/home/henryp/Downloads/21434 - NHPSU - Requirements - 20240529 (1).xlsx",
                         sheet_name="E) DM-Data to copy from NCDR",
                         header=4)
     nhp = nhp.rename({"NCDR Dataset Schema": SCHEMA,
                 "NCDR Table/View Name": VIEW,
                 "NCDR Sandbox": DATABASE
-                }, axis=1)
+                }, axis=1)[1:]
     actual_disk_used(nhp, total_nhp())
     non_matching(nhp, total_nhp())
     print("\nDatabases:")
