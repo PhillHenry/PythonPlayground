@@ -1,6 +1,12 @@
 import re
 import pandas as pd
 
+DATABASE = "Database"
+
+SCHEMA = "Schema"
+
+VIEW = "View"
+
 MBs = "UsedSpaceMB"
 SCHEMA = "Schema in NCDR"
 
@@ -26,7 +32,7 @@ def total_nhp() -> dict:
 def actual_disk_used(nhp: pd.DataFrame, dbs: dict):
     total = 0
     for name, df in dbs.items():
-        merged = pd.merge(nhp, df, left_on="View", right_on="TableName", how='outer', indicator=True)
+        merged = pd.merge(nhp, df, left_on=VIEW, right_on="TableName", how='outer', indicator=True)
         both = merged[merged['_merge'] == 'both']
         used = both[MBs].sum()
         total = total + used
@@ -38,10 +44,10 @@ def non_matching(nhp: pd.DataFrame, dbs: dict):
     all = dfs[0]
     for df in dfs[1:]:
         all = pd.concat([all, df])
-    merged = pd.merge(nhp, all, left_on="View", right_on="TableName", how='outer', indicator=True)
+    merged = pd.merge(nhp, all, left_on=VIEW, right_on="TableName", how='outer', indicator=True)
     unknown = merged[merged['_merge'] == 'left_only']
     print(f"Number of unknown {len(unknown)}")
-    print(unknown[["Schema", "View"]].to_string(index=False))
+    print(unknown[[SCHEMA, VIEW]].to_string(index=False))
 
 
 if __name__ == "__main__":
@@ -49,13 +55,14 @@ if __name__ == "__main__":
     nhp = pd.read_excel("/home/henryp/Downloads/21434 - NHPSU - Requirements - 20240529.xlsx",
                         sheet_name="E) DM-Data to copy from NCDR",
                         header=4)
-    for col in nhp.columns:
-        print(f"'{col}'")
-    nhp = nhp.rename({"NCDR Dataset Schema": "Schema",
-                "NCDR Table/View Name": "View"
+    nhp = nhp.rename({"NCDR Dataset Schema": SCHEMA,
+                "NCDR Table/View Name": VIEW,
+                "NCDR Sandbox": DATABASE
                 }, axis=1)
-    print(nhp[1:5].to_string())
     actual_disk_used(nhp, total_nhp())
     non_matching(nhp, total_nhp())
+    print("\nDatabases:")
+    for db in nhp[1:][DATABASE].drop_duplicates():
+        print(db)
 
 
