@@ -45,8 +45,16 @@ def non_matching(nhp: pd.DataFrame, dbs: dict):
 
 
 if __name__ == "__main__":
-    dfe = pd.read_excel("/home/henryp/Downloads/PhODs_UDAL Mart Requirements v9_1.xlsx", sheet_name="Phase 1 migration-Pharm+", header=0)
-    nhp = pd.read_csv("/home/henryp/Documents/Answer/30158/ncdr_nhp_cleaned.csv")
+    # dfe = pd.read_excel("/home/henryp/Downloads/PhODs_UDAL Mart Requirements v9_1.xlsx", sheet_name="Phase 1 migration-Pharm+", header=0)
+    nhp = pd.read_excel("/home/henryp/Downloads/21434 - NHPSU - Requirements - 20240529.xlsx",
+                        sheet_name="E) DM-Data to copy from NCDR",
+                        header=4)
+    for col in nhp.columns:
+        print(f"'{col}'")
+    nhp = nhp.rename({"NCDR Dataset Schema": "Schema",
+                "NCDR Table/View Name": "View"
+                }, axis=1)
+    print(nhp[1:5].to_string())
     actual_disk_used(nhp, total_nhp())
     non_matching(nhp, total_nhp())
 
